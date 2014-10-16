@@ -2,13 +2,19 @@
 #-*- coding:utf-8 -*-
 
 import os
+import re
+import shutil
+import sys
 
 
 class ProjectDistinguisher(object):
     
     def __init__(self):
-        self.useful_project_dir = '../project/useful'
-        self.useless_project_dir = '../project/useless'
+        self.mingw_project_dir = 'D:\\Workspace\\MinGW'
+        self.msvc_project_dir = 'D:\\Workspace\\MSVC++'
+        self.cmake_project_dir = 'D:\\Workspace\\CMake'
+        self.bat_project_dir = 'D:\\Workspace\\bat'
+        self.unknown_project_dir = 'D:\\Workspace\\Unknown'
     
     def __del__(self):
         pass
@@ -18,23 +24,56 @@ class ProjectDistinguisher(object):
         
         for dir_name in dir_name_list:
             self.classify_file(dir_name)
-            
-    def is_useful(cls, dir_name):
-        if cls.does_makefile_exist(dir_name):
-            return True
-        else:
-            return False
     
-    def does_makefile_exist(self, dir_name):
-        file_list = os.listdir(self.project_dir + os.sep + dir_name)
+    def does_makefile_exist(self, dir_path):
+        makefile_pattern = 'Makefile|makefile'
+        return self.search_file_from_dir(dir_path,
+                                         makefile_pattern)
         
-        if 'Makefile' in file_list:
-            return True
-        else:
-            return False
+    def does_cmakelists_exists(self, dir_path):
+        cmakelists_pattern = 'CMakeLists'
+        return self.search_file_from_dir(dir_path,
+                                         cmakelists_pattern)
         
-    def classify_file(self, dir_name):
-        if self.is_useful(dir_name):
-            shutil.move(dir_name, self.useful_project_dir + os.sep + dir_name)
+    def does_vcproj_file_exist(self, dir_path):
+        vcproj_file_name_pattern = '.+\.vcproj|\.vcxproj'
+        return self.search_file_from_dir(dir_path,
+                                         vcproj_file_name_pattern)
+        
+    def does_bat_file_exist(self, dir_path):
+        bat_file_name_pattern = '.+\.bat'
+        return self.search_file_from_dir(dir_path,
+                                         bat_file_name_pattern)
+    
+    def search_file_from_dir(self, root_dir_path, file_name_pattern):
+        """
+        search file_name_pattern from root_dir_path
+        """
+        p = re.compile(file_name_pattern)
+        
+        for dir_path, dir_names, file_names in os.walk(root_dir_path):
+            for file_name in file_names:
+                if p.search(file_name) is not None:
+                    return True
+        return False
+    
+    def classify_file(self, dir_path):
+        dir_name = os.path.basename(dir_path)
+        if self.does_vcproj_file_exist(dir_path):
+            shutil.move(dir_path, os.path.join(self.msvc_project_dir, dir_name))
+        elif self.does_makefile_exist(dir_path):
+            shutil.move(dir_path, os.path.join(self.mingw_project_dir, dir_name))
+        elif self.does_cmakelists_exists(dir_path):
+            shutil.move(dir_path, os.path.join(self.cmake_project_dir, dir_name))
+        elif self.does_bat_file_exist(dir_path):
+            shutil.move(dir_path, os.path.join(self.bat_project_dir, dir_name))            
         else:
-            shutil.move(dir_name, self.useless_project_dir + os.sep + dir_name)
+            shutil.move(dir_path, os.path.join(self.unknown_project_dir, dir_name))
+            
+if __name__ == '__main__':
+    git_project_dir = 'D:\\Workspace\\git_project'
+    
+    distinguisher = ProjectDistinguisher()
+    
+    for dir_name in os.listdir(git_project_dir):
+        distinguisher.classify_file(os.path.join(git_project_dir, dir_name))
